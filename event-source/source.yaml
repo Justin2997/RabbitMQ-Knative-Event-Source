@@ -9,7 +9,9 @@ spec:
         spec:
           container:
             image: docker.io/gswk/logger:latest
+
 ---
+  
 apiVersion: sources.eventing.knative.dev/v1alpha1
 kind: ContainerSource
 metadata:
@@ -23,58 +25,3 @@ spec:
     apiVersion: serving.knative.dev/v1alpha1
     kind: Service
     name: logger
----
-apiVersion: v1
-kind: Service
-metadata:
-  # The required headless service for StatefulSets
-  name: rabbitmq
-  labels:
-    ad-app: rabbitmq
-spec:
-  type: NodePort
-  selector:
-    ad-app: rabbitmq
-  ports:
-  - name: amqp
-    port: 5672
-    nodePort: 30309
-  - name: mgmt
-    port: 15672
-    nodePort: 30112
-
----
-
-apiVersion: apps/v1beta1
-kind: StatefulSet
-metadata:
-  name: rabbitmq
-spec:
-  serviceName: "rabbitmq"
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        ad-app: rabbitmq
-    spec:
-      containers:
-      - name: rabbitmq
-        image: rabbitmq:3.5.7-management
-        ports:
-        - containerPort: 5672
-          name: amqp
-        - containerPort: 15672
-          name: mgmt
-        volumeMounts:
-        - name: rabbitmq
-          mountPath: /var/lib/rabbitmq
-  volumeClaimTemplates:
-  - metadata:
-      name: rabbitmq
-      annotations:
-        volume.alpha.kubernetes.io/storage-class: anything
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi # make this bigger in production
