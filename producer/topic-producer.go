@@ -39,10 +39,10 @@ func main() {
 
 	for i := 1; i < 5; i++ {
 		err = ch.Publish(
-			"us",                  // exchange
-			severityFrom(os.Args), // routing key
-			false,                 // mandatory
-			false,                 // immediate
+			"us",                                 // exchange
+			"hello-world-knative-golang.default", // routing key
+			false,                                // mandatory
+			false,                                // immediate
 			amqp.Publishing{
 				ContentType: "text/plain",
 				Body:        []byte(body),
