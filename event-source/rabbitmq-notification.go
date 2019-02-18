@@ -19,7 +19,7 @@ func main() {
 	flag.StringVar(&sink, "sink", "", "This is the url for knative event source")
 	flag.Parse()
 
-	conn, err := amqp.Dial("amqp://justin2997:12345@127.0.0.1:5672/")
+	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 

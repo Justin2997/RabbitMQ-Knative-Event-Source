@@ -13,3 +13,6 @@
 
 # Vendor
 event-source/vendor
+
+# .DS_Store
+rabbitmq-config/.DS_Store
