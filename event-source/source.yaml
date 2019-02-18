@@ -1,0 +1,25 @@
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: logger
+spec:
+  runLatest:
+    configuration:
+      revisionTemplate:
+        spec:
+          container:
+            image: docker.io/gswk/logger:latest
+---
+apiVersion: sources.eventing.knative.dev/v1alpha1
+kind: ContainerSource
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: rabbitmq-evensource
+spec:
+  image: docker.io/justin2997/knative-rabbitmq-event-source
+  imagePullPolicy: Always
+  sink:
+    apiVersion: serving.knative.dev/v1alpha1
+    kind: Service
+    name: logger
