@@ -70,8 +70,8 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	// Binding for hello-world-knative.default
-	log.Printf("Binding queue %s to exchange %s with routing key %s", q.Name, "pods", "logger.default")
+	// Binding for *.default
+	log.Printf("Binding queue %s to exchange %s with routing key %s", q.Name, "pods", "*.default")
 	err = ch.QueueBind(
 		q.Name,      // queue name
 		"*.default", // routing key

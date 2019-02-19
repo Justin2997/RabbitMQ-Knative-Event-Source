@@ -40,7 +40,7 @@ func main() {
 	)
 	failOnError(err, "Failed to declare an exchange")
 
-	body := "Hello World"
+	body := "Hello World - " + routingKey
 
 	for i := 1; i < 5; i++ {
 		err = ch.Publish(

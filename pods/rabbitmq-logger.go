@@ -63,7 +63,7 @@ func main() {
 		q.Name, // queue
 		"",     // consumer
 		true,   // auto ack
-		true,   // exclusive
+		false,  // exclusive
 		false,  // no local
 		false,  // no wait
 		nil,    // args
@@ -74,8 +74,7 @@ func main() {
 
 	go func() {
 		for d := range msgs {
-			// Every things that come here is for hello-world-knative
-			log.Printf(" [x] %s, %s", d.Body)
+			log.Printf(" [x] %s", d.Body)
 		}
 	}()
 
