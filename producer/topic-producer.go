@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"time"
@@ -15,6 +16,11 @@ func failOnError(err error, msg string) {
 }
 
 func main() {
+	// Get the pods to route to
+	var routingKey string
+	flag.StringVar(&routingKey, "routingKey", "", "logger3.default")
+	flag.Parse()
+
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -38,10 +44,10 @@ func main() {
 
 	for i := 1; i < 5; i++ {
 		err = ch.Publish(
-			"us",             // exchange
-			"logger.default", // routing key
-			false,            // mandatory
-			false,            // immediate
+			"us",       // exchange
+			routingKey, // routing key
+			false,      // mandatory
+			false,      // immediate
 			amqp.Publishing{
 				ContentType: "text/plain",
 				Body:        []byte(body),

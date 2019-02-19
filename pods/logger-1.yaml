@@ -1,13 +1,11 @@
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: producer
+  name: logger1
 spec:
   runLatest:
     configuration:
       revisionTemplate:
         spec:
           container:
-            image: docker.io/justin2997/knative-rabbitmq-producer
-            args:
-              - '--routingKey=logger2.default'
+            image: docker.io/gswk/logger:latest

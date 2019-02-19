@@ -1,8 +1,10 @@
 package main
 
 import (
-	"flag"
+	"bytes"
+	"encoding/json"
 	"log"
+	"net/http"
 
 	"github.com/streadway/amqp"
 )
@@ -13,12 +15,30 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func main() {
-	// Get the url to post to for event source
-	var sink string
-	flag.StringVar(&sink, "sink", "", "This is the url for knative event source")
-	flag.Parse()
+func sendNotification(sink string) {
+	message := map[string]interface{}{
+		"hello": "world",
+		"sink":  sink,
+	}
 
+	bytesRepresentation, err := json.Marshal(message)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	resp, err := http.Post(sink, "application/json", bytes.NewBuffer(bytesRepresentation))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var result map[string]interface{}
+
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	// TODO we can use the send back form the pods
+}
+
+func main() {
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -52,9 +72,9 @@ func main() {
 	// Binding for hello-world-knative.default
 	log.Printf("Binding queue %s to exchange %s with routing key %s", q.Name, "pods", "logger.default")
 	err = ch.QueueBind(
-		q.Name,           // queue name
-		"logger.default", // routing key
-		"us",             // exchange
+		q.Name,      // queue name
+		"*.default", // routing key
+		"us",        // exchange
 		false,
 		nil)
 	failOnError(err, "Failed to bind a queue")
@@ -75,9 +95,9 @@ func main() {
 	go func() {
 		for d := range msgs {
 			// Every things that come here is for hello-world-knative
-			log.Printf(" [x] %s", d.Body)
-
-			// TODO send a notificiation to the cluster pods
+			sink := "http://" + d.RoutingKey + ".svc.cluster.local/"
+			log.Printf(" [x] %s, %s", d.Body, sink)
+			sendNotification(sink)
 		}
 	}()
 
