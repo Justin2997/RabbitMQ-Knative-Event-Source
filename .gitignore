@@ -14,6 +14,7 @@
 # Vendor
 event-source/vendor
 producer/vendor
+pods/vendor
 
 # .DS_Store
 rabbitmq-config/.DS_Store

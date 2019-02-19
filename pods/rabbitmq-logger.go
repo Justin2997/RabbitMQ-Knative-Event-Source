@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
+	"flag"
 	"log"
-	"net/http"
 
 	"github.com/streadway/amqp"
 )
@@ -15,31 +13,12 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func sendNotification(sink string) {
-	message := map[string]interface{}{
-		"hello": "world",
-		"sink":  sink,
-	}
-
-	bytesRepresentation, err := json.Marshal(message)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	resp, err := http.Post(sink, "application/json", bytes.NewBuffer(bytesRepresentation))
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	var result map[string]interface{}
-
-	json.NewDecoder(resp.Body).Decode(&result)
-
-	// TODO we can use the send back form the pods
-	// This will be the same as a HTTP status code, maybe we can add some fonctionnaly to it
-}
-
 func main() {
+	var routingKey string
+	flag.StringVar(&routingKey, "routingKey", "", "logger.default") // TODO  have a good default value
+	flag.Parse()
+
+	// Connect to rabbit when I wake up
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -70,12 +49,12 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	// Binding for hello-world-knative.default
-	log.Printf("Binding queue %s to exchange %s with routing key %s", q.Name, "pods", "logger.default")
+	// Binding for routingKey
+	log.Printf("Binding queue %s to exchange %s with routing key %s", q.Name, "pods", routingKey)
 	err = ch.QueueBind(
-		q.Name,      // queue name
-		"*.default", // routing key
-		"us",        // exchange
+		q.Name,     // queue name
+		routingKey, // routing key
+		"us",       // exchange
 		false,
 		nil)
 	failOnError(err, "Failed to bind a queue")
@@ -83,8 +62,8 @@ func main() {
 	msgs, err := ch.Consume(
 		q.Name, // queue
 		"",     // consumer
-		false,  // auto ack
-		false,  // exclusive
+		true,   // auto ack
+		true,   // exclusive
 		false,  // no local
 		false,  // no wait
 		nil,    // args
@@ -96,9 +75,7 @@ func main() {
 	go func() {
 		for d := range msgs {
 			// Every things that come here is for hello-world-knative
-			sink := "http://" + d.RoutingKey + ".svc.cluster.local/"
-			log.Printf(" [x] %s, %s", d.Body, sink)
-			sendNotification(sink)
+			log.Printf(" [x] %s, %s", d.Body)
 		}
 	}()
 

@@ -8,4 +8,6 @@ spec:
       revisionTemplate:
         spec:
           container:
-            image: docker.io/gswk/logger:latest
+            image: docker.io/justin2997/knative-rabbitmq-logger-pods:latest
+            args:
+              - '--routingKey=logger3.default'
