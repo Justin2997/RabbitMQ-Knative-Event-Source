@@ -32,9 +32,9 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	body := "Hello World"
+	body := "logger"
 
-	for i := 1; i < 5; i++ {
+	for i := 0; i < 5; i++ {
 		err = ch.Publish(
 			"",     // exchange
 			q.Name, // routing key
@@ -47,6 +47,7 @@ func main() {
 		failOnError(err, "Failed to publish a message")
 
 		log.Printf(" [x] Sent %s", body)
+		body = "logger2"
 		time.Sleep(1 * time.Second)
 	}
 }

@@ -1,14 +1,26 @@
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: logger-go
+  name: logger
 spec:
   runLatest:
     configuration:
       revisionTemplate:
         spec:
           container:
-            image: docker.io/justin2997/knative-rabbitmq-logger:latest
+            image: docker.io/gswk/logger:latest
+---
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: logger2
+spec:
+  runLatest:
+    configuration:
+      revisionTemplate:
+        spec:
+          container:
+            image: docker.io/gswk/logger:latest
 ---
 apiVersion: eventing.knative.dev/v1alpha1
 kind: Channel
@@ -37,7 +49,7 @@ spec:
 apiVersion: eventing.knative.dev/v1alpha1
 kind: Subscription
 metadata:
-  name: rabbitmq-subscription-knative
+  name: rabbitmq-subscription-logger2
 spec:
   channel:
     apiVersion: eventing.knative.dev/v1alpha1
@@ -47,4 +59,19 @@ spec:
     ref:
       apiVersion: serving.knative.dev/v1alpha1
       kind: Service
-      name: logger-go
+      name: logger2
+---
+apiVersion: eventing.knative.dev/v1alpha1
+kind: Subscription
+metadata:
+  name: rabbitmq-subscription-logger
+spec:
+  channel:
+    apiVersion: eventing.knative.dev/v1alpha1
+    kind: Channel
+    name: rabbitmq-channel
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1alpha1
+      kind: Service
+      name: logger

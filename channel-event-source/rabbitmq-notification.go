@@ -77,8 +77,7 @@ func main() {
 
 	go func() {
 		for d := range msgs {
-			// Every things that come here is for hello-world-knative
-			// sink := "http://" + sink + ".svc.cluster.local/"
+			// Every things that come here is for hello-world-knatie
 			log.Printf(" [x] %s, %s", d.Body, sink)
 			sendNotification(sink)
 			d.Ack(false)

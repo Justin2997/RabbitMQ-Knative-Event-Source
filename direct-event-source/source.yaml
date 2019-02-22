@@ -10,6 +10,30 @@ spec:
           container:
             image: docker.io/gswk/logger:latest
 ---
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: logger2
+spec:
+  runLatest:
+    configuration:
+      revisionTemplate:
+        spec:
+          container:
+            image: docker.io/gswk/logger:latest
+---
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: logger3
+spec:
+  runLatest:
+    configuration:
+      revisionTemplate:
+        spec:
+          container:
+            image: docker.io/gswk/logger:latest
+---
 apiVersion: sources.eventing.knative.dev/v1alpha1
 kind: ContainerSource
 metadata:

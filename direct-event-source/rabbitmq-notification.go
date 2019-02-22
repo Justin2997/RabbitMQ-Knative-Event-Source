@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"log"
 	"net/http"
 
@@ -40,10 +39,6 @@ func sendNotification(sink string) {
 }
 
 func main() {
-	var sink string
-	flag.StringVar(&sink, "sink", "", "logger.default") // TODO  have a good default value
-	flag.Parse()
-
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -77,8 +72,9 @@ func main() {
 
 	go func() {
 		for d := range msgs {
-			// Every things that come here is for hello-world-knative
-			sink := "http://" + sink + ".svc.cluster.local/"
+			destination := string(d.Body[:])
+
+			sink := "http://" + destination + ".default.svc.cluster.local/"
 			log.Printf(" [x] %s, %s", d.Body, sink)
 			sendNotification(sink)
 			d.Ack(false)

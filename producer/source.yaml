@@ -9,5 +9,3 @@ spec:
         spec:
           container:
             image: docker.io/justin2997/knative-rabbitmq-producer
-            args:
-              - '--routingKey=logger2.default'
