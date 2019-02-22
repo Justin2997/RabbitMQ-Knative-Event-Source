@@ -20,6 +20,16 @@ spec:
     kind: ClusterChannelProvisioner
     name: in-memory-channel
 ---
+apiVersion: eventing.knative.dev/v1alpha1
+kind: Channel
+metadata:
+  name: rabbitmq-reply-channel
+spec:
+  provisioner:
+    apiVersion: eventing.knative.dev/v1alpha1
+    kind: ClusterChannelProvisioner
+    name: in-memory-channel
+---
 apiVersion: sources.eventing.knative.dev/v1alpha1
 kind: ContainerSource
 metadata:
@@ -48,3 +58,8 @@ spec:
       apiVersion: serving.knative.dev/v1alpha1
       kind: Service
       name: logger
+  reply:
+    channel:
+      apiVersion: eventing.knative.dev/v1alpha1
+      kind: Channel
+      name: rabbitmq-reply-channel
