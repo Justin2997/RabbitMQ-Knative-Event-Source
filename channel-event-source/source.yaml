@@ -1,29 +1,19 @@
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: logger
+  name: logger-go
 spec:
   runLatest:
     configuration:
       revisionTemplate:
         spec:
           container:
-            image: docker.io/gswk/logger:latest
+            image: docker.io/justin2997/knative-rabbitmq-logger:latest
 ---
 apiVersion: eventing.knative.dev/v1alpha1
 kind: Channel
 metadata:
   name: rabbitmq-channel
-spec:
-  provisioner:
-    apiVersion: eventing.knative.dev/v1alpha1
-    kind: ClusterChannelProvisioner
-    name: in-memory-channel
----
-apiVersion: eventing.knative.dev/v1alpha1
-kind: Channel
-metadata:
-  name: rabbitmq-reply-channel
 spec:
   provisioner:
     apiVersion: eventing.knative.dev/v1alpha1
@@ -37,7 +27,7 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: rabbitmq-evensource
 spec:
-  image: docker.io/justin2997/knative-rabbitmq-event-source
+  image: docker.io/justin2997/knative-rabbitmq-channel-event-source
   imagePullPolicy: Always
   sink:
     apiVersion: eventing.knative.dev/v1alpha1
@@ -47,7 +37,7 @@ spec:
 apiVersion: eventing.knative.dev/v1alpha1
 kind: Subscription
 metadata:
-  name: rabbitmq-subscription
+  name: rabbitmq-subscription-knative
 spec:
   channel:
     apiVersion: eventing.knative.dev/v1alpha1
@@ -57,9 +47,4 @@ spec:
     ref:
       apiVersion: serving.knative.dev/v1alpha1
       kind: Service
-      name: logger
-  reply:
-    channel:
-      apiVersion: eventing.knative.dev/v1alpha1
-      kind: Channel
-      name: rabbitmq-reply-channel
+      name: logger-go
