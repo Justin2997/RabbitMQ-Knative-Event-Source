@@ -12,15 +12,15 @@ docker push justin2997/knative-rabbitmq-logger
 
 # Setup Kube
 echo "Start RabbitMQ Brocker"
-k apply -f rabbitmq-config/.
+kubectl apply -f rabbitmq-config/.
 sleep 10
 
 echo "Start Event Source and Logger"
-k apply -f event-source-worker/.
+kubectl apply -f event-source-worker/.
 sleep 10
 
 echo "Start Producer"
-k apply -f producer/.
+kubectl apply -f producer/.
 sleep 10
 
 echo "Job Done !"

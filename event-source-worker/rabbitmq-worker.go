@@ -17,10 +17,11 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func sendTasktoFunction(sink string, critical bool) {
+func sendTasktoFunction(sink string, critical bool, producer string) {
 	message := map[string]interface{}{
-		"hello": "world",
-		"sink":  sink,
+		"hello":    "world",
+		"sink":     sink,
+		"producer": producer,
 	}
 
 	bytesRepresentation, err := json.Marshal(message)
@@ -53,18 +54,16 @@ func consumeFunctionQueue(ch *amqp.Channel, consumerName string, qName string) {
 		nil,          // args
 	)
 	failOnError(err, "Failed to register a consumer")
-	forever := make(chan bool)
 	go func() {
 		for d := range msgs {
 			critical := (strings.Split(d.RoutingKey, ".")[1] == "critical")
 			destination := "http://" + strings.Split(d.RoutingKey, ".")[0] + ".default.svc.cluster.local/"
 			log.Printf(" [x] %s, %s", d.Body, destination)
-			sendTasktoFunction(destination, critical)
+			sendTasktoFunction(destination, critical, d.ReplyTo)
 			d.Ack(false)
 		}
 	}()
 	log.Printf(" [*] %s ready to consume on %s", consumerName, qName)
-	<-forever
 }
 
 func consumeErrorQueue(ch *amqp.Channel, consumerName string, qName string) {
@@ -78,23 +77,23 @@ func consumeErrorQueue(ch *amqp.Channel, consumerName string, qName string) {
 		nil,          // args
 	)
 	failOnError(err, "Failed to register a consumer")
-	forever := make(chan bool)
 	go func() {
 		for d := range msgs {
 			critical := (strings.Split(d.RoutingKey, ".")[1] == "critical")
 			destination := "http://" + strings.Split(d.RoutingKey, ".")[0] + ".default.svc.cluster.local/"
 			log.Printf(" [x] %s, %s", d.Body, destination)
-			sendTasktoFunction(destination, critical)
+			sendTasktoFunction(destination, critical, d.ReplyTo)
 			d.Ack(false)
 		}
 	}()
 	log.Printf(" [*] %s ready to consume on %s", consumerName, qName)
-	<-forever
 }
 
 func main() {
 	var workerName string
+	var sink string
 	flag.StringVar(&workerName, "name", "", "") // If there is no routing Key there will be a error
+	flag.StringVar(&sink, "sink", "", "")       // This is not use for now
 	flag.Parse()
 	if workerName == "" {
 		log.Fatalf("Flag name have to been defind")
@@ -160,6 +159,8 @@ func main() {
 		nil)
 	failOnError(err, "Failed to bind a queue")
 
-	consumeFunctionQueue(ch, workerName, qFunction.Name)
-	consumeErrorQueue(ch, workerName, qError.Name)
+	forever := make(chan bool)
+	consumeFunctionQueue(ch, workerName+".function", qFunction.Name)
+	consumeErrorQueue(ch, workerName+".error", qError.Name)
+	<-forever
 }

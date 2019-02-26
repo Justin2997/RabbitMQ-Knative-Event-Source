@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -15,7 +16,20 @@ func failOnError(err error, msg string) {
 	}
 }
 
+func randomString(l int) string {
+	bytes := make([]byte, l)
+	for i := 0; i < l; i++ {
+		bytes[i] = byte(randInt(65, 90))
+	}
+	return string(bytes)
+}
+
+func randInt(min int, max int) int {
+	return min + rand.Intn(max-min)
+}
+
 func main() {
+	producerName := "producer"
 	var routingKey string
 	flag.StringVar(&routingKey, "routingKey", "", "") // If there is no routing Key there will be a error
 	flag.Parse()
@@ -45,14 +59,17 @@ func main() {
 
 	for i := 0; i < 5; i++ {
 		body := strconv.Itoa(i)
+		corrID := randomString(32)
 		err = ch.Publish(
 			"knative-exchange", // exchange
 			routingKey,         // routing key
 			false,              // mandatory
 			false,              // immediate
 			amqp.Publishing{
-				ContentType: "text/plain",
-				Body:        []byte(body),
+				ContentType:   "text/plain",
+				Body:          []byte(body),
+				ReplyTo:       producerName,
+				CorrelationId: corrID,
 			})
 		failOnError(err, "Failed to publish a message")
 
