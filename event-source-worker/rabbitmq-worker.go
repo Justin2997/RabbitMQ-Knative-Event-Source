@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -19,9 +20,9 @@ func failOnError(err error, msg string) {
 
 func sendTasktoFunction(sink string, critical bool, producer string) {
 	message := map[string]interface{}{
-		"hello":    "world",
-		"sink":     sink,
+		"body":     sink,
 		"producer": producer,
+		"critical": critical,
 	}
 
 	bytesRepresentation, err := json.Marshal(message)
@@ -34,13 +35,13 @@ func sendTasktoFunction(sink string, critical bool, producer string) {
 		log.Fatalln(err)
 	}
 
-	var result map[string]interface{}
-
-	log.Print("Status %s", resp.Status)
-
-	json.NewDecoder(resp.Body).Decode(&result)
-
-	log.Printf(" [.] Responce %s", result)
+	log.Print("Status ", resp.StatusCode)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	s := string(body[:])
+	log.Printf(" [.] Responce %s", s)
 }
 
 func consumeFunctionQueue(ch *amqp.Channel, consumerName string, qName string) {
