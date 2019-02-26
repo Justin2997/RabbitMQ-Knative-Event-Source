@@ -6,12 +6,8 @@ import (
 )
 
 func handle(w http.ResponseWriter, r *http.Request) {
-
-	if r.URL.Path != "/" {
-		http.Error(w, "404 not found.", http.StatusNotFound)
-		return
-	}
-
+	fmt.Println("Handle")
+	fmt.Println(r.Method)
 	switch r.Method {
 	case "GET":
 		fmt.Fprintf(w, "Sorry, only POST methods are supported.")

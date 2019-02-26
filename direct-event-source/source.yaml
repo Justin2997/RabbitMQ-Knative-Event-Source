@@ -8,7 +8,7 @@ spec:
       revisionTemplate:
         spec:
           container:
-            image: docker.io/gswk/logger:latest
+            image: docker.io/justin2997/knative-rabbitmq-logger
 ---
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service

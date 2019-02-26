@@ -33,6 +33,8 @@ func sendNotification(sink string) {
 
 	var result map[string]interface{}
 
+	log.Print("Status %s", resp.Status)
+
 	json.NewDecoder(resp.Body).Decode(&result)
 
 	log.Printf(" [.] Responce %s", result)
