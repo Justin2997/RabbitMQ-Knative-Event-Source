@@ -29,7 +29,7 @@ func randInt(min int, max int) int {
 }
 
 func main() {
-	producerName := "producer"
+	callbackPods := "logger2"
 	var routingKey string
 	flag.StringVar(&routingKey, "routingKey", "", "") // If there is no routing Key there will be a error
 	flag.Parse()
@@ -68,7 +68,7 @@ func main() {
 			amqp.Publishing{
 				ContentType:   "text/plain",
 				Body:          []byte(body),
-				ReplyTo:       producerName,
+				ReplyTo:       callbackPods,
 				CorrelationId: corrID,
 			})
 		failOnError(err, "Failed to publish a message")

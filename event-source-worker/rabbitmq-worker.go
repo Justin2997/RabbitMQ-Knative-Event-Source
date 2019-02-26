@@ -18,6 +18,33 @@ func failOnError(err error, msg string) {
 	}
 }
 
+func sendCallBackResponse(producer string, response string, critical bool) {
+	destination := "http://" + producer + ".default.svc.cluster.local/"
+	message := map[string]interface{}{
+		"body":     response,
+		"producer": producer,
+		"critical": critical,
+	}
+
+	bytesRepresentation, err := json.Marshal(message)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	resp, err := http.Post(destination, "application/json", bytes.NewBuffer(bytesRepresentation))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	log.Print("Status ", resp.StatusCode)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	s := string(body[:])
+	log.Printf(" [.] Responce %s", s)
+}
+
 func sendTasktoFunction(sink string, critical bool, producer string) {
 	message := map[string]interface{}{
 		"body":     sink,
@@ -42,6 +69,9 @@ func sendTasktoFunction(sink string, critical bool, producer string) {
 	}
 	s := string(body[:])
 	log.Printf(" [.] Responce %s", s)
+
+	//Callback the Pods that as for the function
+	sendCallBackResponse(producer, s, critical)
 }
 
 func consumeFunctionQueue(ch *amqp.Channel, consumerName string, qName string) {
