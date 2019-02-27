@@ -8,9 +8,10 @@ import (
 )
 
 type Data struct {
-	Producer string `json:"producer"`
-	Body     string `json:"body"`
-	Critical bool   `json:"critical"`
+	Producer      string `json:"producer"`
+	Body          string `json:"body"`
+	Critical      bool   `json:"critical"`
+	CorrelationID string `json:"correlationId"`
 }
 
 func handle(w http.ResponseWriter, r *http.Request) {
@@ -24,9 +25,16 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
+	data.Body = "OK"
 
-	fmt.Printf("Thank you %s, call number %s", data.Producer, data.Body)
-	fmt.Fprintf(w, "Thanks you %s, call number %s", data.Producer, data.Body)
+	b, err := json.Marshal(&data)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Sending Data...")
+	fmt.Print(string(b))
+	fmt.Fprint(w, string(b))
 }
 
 func main() {

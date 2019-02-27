@@ -12,66 +12,58 @@ import (
 	"github.com/streadway/amqp"
 )
 
+type Data struct {
+	Producer      string `json:"producer"`
+	Body          string `json:"body"`
+	Critical      bool   `json:"critical"`
+	CorrelationID string `json:"correlationId"`
+}
+
 func failOnError(err error, msg string) {
 	if err != nil {
 		log.Fatalf("%s: %s", msg, err)
 	}
 }
 
-func sendCallBackResponse(producer string, response string, critical bool) {
-	destination := "http://" + producer + ".default.svc.cluster.local/"
-	message := map[string]interface{}{
-		"body":     response,
-		"producer": producer,
-		"critical": critical,
+func sendCallBackResponse(reponse Data) {
+	bytesRepresentation, err := json.Marshal(reponse)
+	if err != nil {
+		log.Fatalln(err)
 	}
-
-	bytesRepresentation, err := json.Marshal(message)
+	log.Printf("CallBack Send to %s", reponse.Producer)
+	resp, err := http.Post(reponse.Producer, "application/json", bytes.NewBuffer(bytesRepresentation))
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	resp, err := http.Post(destination, "application/json", bytes.NewBuffer(bytesRepresentation))
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	log.Print("Status ", resp.StatusCode)
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	s := string(body[:])
-	log.Printf(" [.] Responce %s", s)
+	log.Print("CallBack Status ", resp.StatusCode)
 }
 
-func sendTasktoFunction(sink string, critical bool, producer string) {
-	message := map[string]interface{}{
-		"body":     sink,
-		"producer": producer,
-		"critical": critical,
-	}
-
+func sendTasktoFunction(message Data) {
 	bytesRepresentation, err := json.Marshal(message)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	resp, err := http.Post(sink, "application/json", bytes.NewBuffer(bytesRepresentation))
+	resp, err := http.Post(message.Body, "application/json", bytes.NewBuffer(bytesRepresentation))
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	log.Print("Status ", resp.StatusCode)
+	log.Print("Task Status ", resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		panic(err)
 	}
-	s := string(body[:])
-	log.Printf(" [.] Responce %s", s)
 
-	//Callback the Pods that as for the function
-	sendCallBackResponse(producer, s, critical)
+	var data Data
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		panic(err)
+	}
+	log.Print(data)
+
+	sendCallBackResponse(data)
 }
 
 func consumeFunctionQueue(ch *amqp.Channel, consumerName string, qName string) {
@@ -90,7 +82,13 @@ func consumeFunctionQueue(ch *amqp.Channel, consumerName string, qName string) {
 			critical := (strings.Split(d.RoutingKey, ".")[1] == "critical")
 			destination := "http://" + strings.Split(d.RoutingKey, ".")[0] + ".default.svc.cluster.local/"
 			log.Printf(" [x] %s, %s", d.Body, destination)
-			sendTasktoFunction(destination, critical, d.ReplyTo)
+			message := Data{
+				Producer:      d.ReplyTo,
+				Body:          destination,
+				Critical:      critical,
+				CorrelationID: d.CorrelationId,
+			}
+			sendTasktoFunction(message)
 			d.Ack(false)
 		}
 	}()
@@ -113,7 +111,13 @@ func consumeErrorQueue(ch *amqp.Channel, consumerName string, qName string) {
 			critical := (strings.Split(d.RoutingKey, ".")[1] == "critical")
 			destination := "http://" + strings.Split(d.RoutingKey, ".")[0] + ".default.svc.cluster.local/"
 			log.Printf(" [x] %s, %s", d.Body, destination)
-			sendTasktoFunction(destination, critical, d.ReplyTo)
+			message := Data{
+				Producer:      d.ReplyTo,
+				Body:          destination,
+				Critical:      critical,
+				CorrelationID: d.CorrelationId,
+			}
+			sendTasktoFunction(message)
 			d.Ack(false)
 		}
 	}()
