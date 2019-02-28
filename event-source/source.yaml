@@ -1,7 +1,7 @@
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: logger
+  name: logger1
 spec:
   runLatest:
     configuration:
@@ -20,7 +20,7 @@ spec:
       revisionTemplate:
         spec:
           container:
-            image: docker.io/gswk/logger:latest
+            image: justin2997/knative-rabbitmq-logger
 ---
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -32,7 +32,7 @@ spec:
       revisionTemplate:
         spec:
           container:
-            image: docker.io/gswk/logger:latest
+            image: justin2997/knative-rabbitmq-logger
 ---
 apiVersion: sources.eventing.knative.dev/v1alpha1
 kind: ContainerSource
@@ -41,9 +41,11 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: rabbitmq-evensource
 spec:
-  image: docker.io/justin2997/knative-rabbitmq-event-source
+  image: docker.io/justin2997/knative-rabbitmq-event-source-worker
   imagePullPolicy: Always
+  args:
+    - '--name=worker1'
   sink:
     apiVersion: serving.knative.dev/v1alpha1
     kind: Service
-    name: logger
+    name: logger1
