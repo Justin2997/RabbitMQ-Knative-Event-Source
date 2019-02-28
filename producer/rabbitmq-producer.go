@@ -104,12 +104,6 @@ func main() {
 
 	for i := 0; i < 5; i++ {
 		body := strconv.Itoa(i)
-		message := Data{
-			Producer:      d.ReplyTo,
-			Body:          body,
-			Critical:      critical,
-			CorrelationID: d.CorrelationId,
-		}
 		corrID := randomString(32)
 		err = ch.Publish(
 			exchangeName, // exchange

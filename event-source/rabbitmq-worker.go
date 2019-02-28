@@ -23,7 +23,6 @@ type Data struct {
 var exchangeName string
 var routingKeyFunction string
 var routingKeyError string
-var ch amqp.Channel
 
 func failOnError(err error, msg string) {
 	if err != nil {
@@ -44,28 +43,47 @@ func randInt(min int, max int) int {
 }
 
 func sendElementToErrorQueue(element Data, err error) {
+	log.Printf("ERROR on critical element, sending to dead letter queue. Error : %s", err)
 	body, err := json.Marshal(element)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	routingKey := 
+	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq/")
+	failOnError(err, "Failed to connect to RabbitMQ")
+	defer conn.Close()
+	ch, err := conn.Channel()
+	failOnError(err, "Failed to open a channel")
+	defer ch.Close()
+
+	err = ch.ExchangeDeclare(
+		exchangeName, // name
+		"topic",      // type
+		true,         // durable
+		false,        // auto-deleted
+		false,        // internal
+		false,        // no-wait
+		nil,          // arguments
+	)
+	failOnError(err, "Failed to declare an exchange")
+
+	routingKey := element.Owner + ".error"
 	corrID := randomString(32)
 	err = ch.Publish(
-		exchangeName,    // exchange
-		routingKey, // routing key
-		false,           // mandatory
-		false,           // immediate
+		exchangeName, // exchange
+		routingKey,   // routing key
+		false,        // mandatory
+		false,        // immediate
 		amqp.Publishing{
 			ContentType:   "text/plain",
 			Body:          []byte(body),
-			ReplyTo:       ,
+			ReplyTo:       element.Owner,
 			CorrelationId: corrID,
 		})
 	failOnError(err, "Failed to publish a message")
 }
 
-func sendCallBackResponse(reponse Data) {
+func sendCallBackResponse(reponse Data) bool {
 	bytesRepresentation, err := json.Marshal(reponse)
 	if err != nil {
 		log.Fatalln(err)
@@ -74,26 +92,29 @@ func sendCallBackResponse(reponse Data) {
 	resp, err := http.Post(reponse.Owner, "application/json", bytes.NewBuffer(bytesRepresentation))
 
 	// If there is a error with the callback
-	if ((err != nil || resp.StatusCode != 200) && reponse.Critical) {
+	if (err != nil || resp.StatusCode != 200) && reponse.Critical {
 		sendElementToErrorQueue(reponse, err)
+		return false
 	}
+	return true
 }
 
-func sendTasktoFunction(message Data) {
+func sendTasktoFunction(message Data, destination string) bool {
 	bytesRepresentation, err := json.Marshal(message)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	resp, err := http.Post(message.Body, "application/json", bytes.NewBuffer(bytesRepresentation))
+	resp, err := http.Post(destination, "application/json", bytes.NewBuffer(bytesRepresentation))
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	log.Print("Task Status ", resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
+	if (err != nil || resp.StatusCode != 200) && message.Critical {
+		sendElementToErrorQueue(message, err)
+		return false
 	}
 
 	var data Data
@@ -103,7 +124,7 @@ func sendTasktoFunction(message Data) {
 	}
 	log.Print(data)
 
-	sendCallBackResponse(data)
+	return sendCallBackResponse(data)
 }
 
 func consumeFunctionQueue(ch *amqp.Channel, consumerName string, qName string) {
@@ -121,15 +142,18 @@ func consumeFunctionQueue(ch *amqp.Channel, consumerName string, qName string) {
 		for d := range msgs {
 			critical := (strings.Split(d.RoutingKey, ".")[1] == "critical")
 			destination := "http://" + strings.Split(d.RoutingKey, ".")[0] + ".default.svc.cluster.local/"
-			log.Printf(" [x] %s, %s", d.Body, destination)
+			log.Printf(" [F] %s, %s", d.Body, destination)
 			message := Data{
 				Owner:         d.ReplyTo,
-				Body:          destination,
+				Body:          string(d.Body[:]),
 				Critical:      critical,
 				CorrelationID: d.CorrelationId,
 			}
-			sendTasktoFunction(message)
-			d.Ack(false) // TODO not ack if there is a error to the consumer
+			if sendTasktoFunction(message, destination) {
+				d.Ack(false)
+			} else {
+				d.Nack(false, false)
+			}
 		}
 	}()
 	log.Printf(" [*] %s ready to consume on %s", consumerName, qName)
@@ -148,23 +172,25 @@ func consumeErrorQueue(ch *amqp.Channel, consumerName string, qName string) {
 	failOnError(err, "Failed to register a consumer")
 	go func() {
 		for d := range msgs {
-			critical := (strings.Split(d.RoutingKey, ".")[1] == "critical")
-			destination := "http://" + strings.Split(d.RoutingKey, ".")[0] + ".default.svc.cluster.local/"
-			log.Printf(" [x] %s, %s", d.Body, destination)
+			log.Printf(" [E] %s", d.Body)
 			message := Data{
-				Owner:      d.ReplyTo,
-				Body:          destination,
-				Critical:      critical,
+				Owner:         d.ReplyTo,
+				Body:          string(d.Body[:]),
+				Critical:      true,
 				CorrelationID: d.CorrelationId,
 			}
-			sendTasktoFunction(message)
-			d.Ack(false)
+			if sendCallBackResponse(message) {
+				d.Ack(false)
+			} else {
+				d.Nack(false, false)
+			}
 		}
 	}()
 	log.Printf(" [*] %s ready to consume on %s", consumerName, qName)
 }
 
 func main() {
+	exchangeName = "knative-exchange"
 	var workerName string
 	var sink string
 	flag.StringVar(&workerName, "name", "", "") // If there is no routing Key there will be a error
@@ -214,8 +240,8 @@ func main() {
 	failOnError(err, "Failed to declare a queue")
 
 	// Binding the Queue
-	routingKeyFunction := "*.function"
-	routingKeyError := "*.error"
+	routingKeyFunction := "*.*.function"
+	routingKeyError := "#.error"
 	log.Printf("Binding queue %s to exchange %s with routing key %s", qFunction.Name, exchangeName, routingKeyFunction)
 	err = ch.QueueBind(
 		qFunction.Name,     // queue name

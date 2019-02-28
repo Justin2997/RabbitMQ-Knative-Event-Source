@@ -26,7 +26,6 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	data.Body = "OK"
-	data.Owner = "logger1"
 
 	b, err := json.Marshal(&data)
 	if err != nil {
