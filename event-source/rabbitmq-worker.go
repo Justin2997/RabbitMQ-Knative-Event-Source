@@ -6,6 +6,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 
@@ -13,11 +14,16 @@ import (
 )
 
 type Data struct {
-	Producer      string `json:"producer"`
+	Owner         string `json:"owner"`
 	Body          string `json:"body"`
 	Critical      bool   `json:"critical"`
 	CorrelationID string `json:"correlationId"`
 }
+
+var exchangeName string
+var routingKeyFunction string
+var routingKeyError string
+var ch amqp.Channel
 
 func failOnError(err error, msg string) {
 	if err != nil {
@@ -25,18 +31,52 @@ func failOnError(err error, msg string) {
 	}
 }
 
+func randomString(l int) string {
+	bytes := make([]byte, l)
+	for i := 0; i < l; i++ {
+		bytes[i] = byte(randInt(65, 90))
+	}
+	return string(bytes)
+}
+
+func randInt(min int, max int) int {
+	return min + rand.Intn(max-min)
+}
+
+func sendElementToErrorQueue(element Data, err error) {
+	body, err := json.Marshal(element)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	routingKey := 
+	corrID := randomString(32)
+	err = ch.Publish(
+		exchangeName,    // exchange
+		routingKey, // routing key
+		false,           // mandatory
+		false,           // immediate
+		amqp.Publishing{
+			ContentType:   "text/plain",
+			Body:          []byte(body),
+			ReplyTo:       ,
+			CorrelationId: corrID,
+		})
+	failOnError(err, "Failed to publish a message")
+}
+
 func sendCallBackResponse(reponse Data) {
 	bytesRepresentation, err := json.Marshal(reponse)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Printf("CallBack Send to %s", reponse.Producer)
-	resp, err := http.Post(reponse.Producer, "application/json", bytes.NewBuffer(bytesRepresentation))
-	if err != nil {
-		log.Fatalln(err)
-	}
+	log.Printf("CallBack Send to %s", reponse.Owner)
+	resp, err := http.Post(reponse.Owner, "application/json", bytes.NewBuffer(bytesRepresentation))
 
-	log.Print("CallBack Status ", resp.StatusCode)
+	// If there is a error with the callback
+	if ((err != nil || resp.StatusCode != 200) && reponse.Critical) {
+		sendElementToErrorQueue(reponse, err)
+	}
 }
 
 func sendTasktoFunction(message Data) {
@@ -83,13 +123,13 @@ func consumeFunctionQueue(ch *amqp.Channel, consumerName string, qName string) {
 			destination := "http://" + strings.Split(d.RoutingKey, ".")[0] + ".default.svc.cluster.local/"
 			log.Printf(" [x] %s, %s", d.Body, destination)
 			message := Data{
-				Producer:      d.ReplyTo,
+				Owner:         d.ReplyTo,
 				Body:          destination,
 				Critical:      critical,
 				CorrelationID: d.CorrelationId,
 			}
 			sendTasktoFunction(message)
-			d.Ack(false)
+			d.Ack(false) // TODO not ack if there is a error to the consumer
 		}
 	}()
 	log.Printf(" [*] %s ready to consume on %s", consumerName, qName)
@@ -112,7 +152,7 @@ func consumeErrorQueue(ch *amqp.Channel, consumerName string, qName string) {
 			destination := "http://" + strings.Split(d.RoutingKey, ".")[0] + ".default.svc.cluster.local/"
 			log.Printf(" [x] %s, %s", d.Body, destination)
 			message := Data{
-				Producer:      d.ReplyTo,
+				Owner:      d.ReplyTo,
 				Body:          destination,
 				Critical:      critical,
 				CorrelationID: d.CorrelationId,
@@ -141,7 +181,6 @@ func main() {
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
 
-	exchangeName := "knative-exchange"
 	err = ch.ExchangeDeclare(
 		exchangeName, // name
 		"topic",      // type

@@ -8,7 +8,7 @@ import (
 )
 
 type Data struct {
-	Producer      string `json:"producer"`
+	Owner         string `json:"owner"`
 	Body          string `json:"body"`
 	Critical      bool   `json:"critical"`
 	CorrelationID string `json:"correlationId"`
@@ -26,6 +26,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	data.Body = "OK"
+	data.Owner = "logger1"
 
 	b, err := json.Marshal(&data)
 	if err != nil {

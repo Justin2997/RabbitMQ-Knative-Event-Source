@@ -14,7 +14,7 @@ import (
 )
 
 type Data struct {
-	Producer      string `json:"producer"`
+	Owner         string `json:"owner"`
 	Body          string `json:"body"`
 	Critical      bool   `json:"critical"`
 	CorrelationID string `json:"correlationId"`
@@ -104,6 +104,12 @@ func main() {
 
 	for i := 0; i < 5; i++ {
 		body := strconv.Itoa(i)
+		message := Data{
+			Producer:      d.ReplyTo,
+			Body:          body,
+			Critical:      critical,
+			CorrelationID: d.CorrelationId,
+		}
 		corrID := randomString(32)
 		err = ch.Publish(
 			exchangeName, // exchange
