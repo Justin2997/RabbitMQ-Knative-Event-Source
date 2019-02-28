@@ -23,7 +23,6 @@ type Data struct {
 var exchangeName string
 var routingKeyFunction string
 var routingKeyError string
-var ch amqp.Channel
 
 func failOnError(err error, msg string) {
 	if err != nil {
@@ -44,22 +43,29 @@ func randInt(min int, max int) int {
 }
 
 func sendElementToErrorQueue(element Data, err error) {
+	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq/")
+	failOnError(err, "Failed to connect to RabbitMQ")
+	defer conn.Close()
+	ch, err := conn.Channel()
+	failOnError(err, "Failed to open a channel")
+	defer ch.Close()
+
 	body, err := json.Marshal(element)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	routingKey := 
+	routingKey := element.Owner + ".error"
 	corrID := randomString(32)
 	err = ch.Publish(
-		exchangeName,    // exchange
-		routingKey, // routing key
-		false,           // mandatory
-		false,           // immediate
+		exchangeName, // exchange
+		routingKey,   // routing key
+		false,        // mandatory
+		false,        // immediate
 		amqp.Publishing{
 			ContentType:   "text/plain",
 			Body:          []byte(body),
-			ReplyTo:       ,
+			ReplyTo:       element.Owner,
 			CorrelationId: corrID,
 		})
 	failOnError(err, "Failed to publish a message")
@@ -73,8 +79,10 @@ func sendCallBackResponse(reponse Data) {
 	log.Printf("CallBack Send to %s", reponse.Owner)
 	resp, err := http.Post(reponse.Owner, "application/json", bytes.NewBuffer(bytesRepresentation))
 
+	log.Print("Responce code from callBack : ", resp.StatusCode)
+
 	// If there is a error with the callback
-	if ((err != nil || resp.StatusCode != 200) && reponse.Critical) {
+	if (err != nil || resp.StatusCode != 200) && reponse.Critical {
 		sendElementToErrorQueue(reponse, err)
 	}
 }
@@ -152,7 +160,7 @@ func consumeErrorQueue(ch *amqp.Channel, consumerName string, qName string) {
 			destination := "http://" + strings.Split(d.RoutingKey, ".")[0] + ".default.svc.cluster.local/"
 			log.Printf(" [x] %s, %s", d.Body, destination)
 			message := Data{
-				Owner:      d.ReplyTo,
+				Owner:         d.ReplyTo,
 				Body:          destination,
 				Critical:      critical,
 				CorrelationID: d.CorrelationId,
@@ -165,6 +173,7 @@ func consumeErrorQueue(ch *amqp.Channel, consumerName string, qName string) {
 }
 
 func main() {
+	exchangeName := "knative-exchange"
 	var workerName string
 	var sink string
 	flag.StringVar(&workerName, "name", "", "") // If there is no routing Key there will be a error
@@ -214,8 +223,8 @@ func main() {
 	failOnError(err, "Failed to declare a queue")
 
 	// Binding the Queue
-	routingKeyFunction := "*.function"
-	routingKeyError := "*.error"
+	routingKeyFunction := "#.function"
+	routingKeyError := "#.error"
 	log.Printf("Binding queue %s to exchange %s with routing key %s", qFunction.Name, exchangeName, routingKeyFunction)
 	err = ch.QueueBind(
 		qFunction.Name,     // queue name

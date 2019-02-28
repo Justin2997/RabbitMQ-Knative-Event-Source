@@ -20,7 +20,7 @@ kubectl apply -f event-source/.
 sleep 10
 
 echo "Start Producer"
-kubectl apply -f producer/.
+#kubectl apply -f producer/.
 sleep 10
 
 echo "Job Done !"
