@@ -2,6 +2,30 @@
 
 
 [[projects]]
+  digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  pruneopts = "UT"
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
+  version = "v1.1.1"
+
+[[projects]]
+  digest = "1:582b704bebaa06b48c29b0cec224a6058a09c86883aaddabde889cd1a5f73e1b"
+  name = "github.com/google/uuid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "0cd6bf5da1e1c83f8b45653022c74f71af0538a4"
+  version = "v1.1.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:7dd6d64fbc607130797538d9f5800d57c522352e074ae0ffd1b3a7e8f12c6f22"
+  name = "github.com/knative/pkg"
+  packages = ["cloudevents"]
+  pruneopts = "UT"
+  revision = "efe322d2caeb2b93117003f74810465f4fbeed40"
+
+[[projects]]
   branch = "master"
   digest = "1:dbd2b63224b02f9c7fd0631edaf6588dfb05fc20608f548fb603ef096fa87474"
   name = "github.com/streadway/amqp"
@@ -12,6 +36,9 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  input-imports = ["github.com/streadway/amqp"]
+  input-imports = [
+    "github.com/knative/pkg/cloudevents",
+    "github.com/streadway/amqp",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
