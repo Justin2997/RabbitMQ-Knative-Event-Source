@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -40,33 +39,6 @@ func init() {
 	queueConfiguration = amqp.Table{"x-dead-letter-exchange": exchangeName}
 }
 
-func sendElementToErrorQueue(element Data, err error) {
-	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq/")
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
-
-	body, err := json.Marshal(element)
-	failOnError(err, "ERROR")
-
-	routingKey := element.Owner + ".error"
-	corrID := randomString(32)
-	err = ch.Publish(
-		exchangeName, // exchange
-		routingKey,   // routing key
-		false,        // mandatory
-		false,        // immediate
-		amqp.Publishing{
-			ContentType:   "text/plain",
-			Body:          []byte(body),
-			ReplyTo:       element.Owner,
-			CorrelationId: corrID,
-		})
-	failOnError(err, "Failed to publish a message")
-}
-
 func sendCallBackResponse(reponse Data) {
 	bytesRepresentation, err := json.Marshal(reponse)
 	failOnError(err, "Can not convert message for callback response")
@@ -77,7 +49,7 @@ func sendCallBackResponse(reponse Data) {
 
 	// If there is a error with the callback
 	if (err != nil || resp.StatusCode != 200) && reponse.Critical {
-		sendElementToErrorQueue(reponse, err)
+		debugLog("ERROR critical message do not made it to the callback")
 	}
 }
 
@@ -131,36 +103,6 @@ func consumeFunctionQueue(ch *amqp.Channel, consumerName string, qName string) {
 	}()
 
 	debugLog(" [*] " + consumerName + " ready to consume on " + qName)
-}
-
-func consumeErrorQueue(ch *amqp.Channel, consumerName string, qName string) {
-	msgs, err := ch.Consume(
-		qName,        // queue
-		consumerName, // consumer
-		false,        // auto ack
-		false,        // exclusive
-		false,        // no local
-		false,        // no wait
-		nil,          // args
-	)
-	failOnError(err, "Failed to register a consumer")
-	go func() {
-		debugLog("Ready to consume")
-		for d := range msgs {
-			critical := (strings.Split(d.RoutingKey, ".")[1] == "critical")
-			destination := "http://" + strings.Split(d.RoutingKey, ".")[0] + ".default.svc.cluster.local/"
-			log.Printf(" [x] %s, %s", d.Body, destination)
-			message := Data{
-				Owner:         d.ReplyTo,
-				Body:          destination,
-				Critical:      critical,
-				CorrelationID: d.CorrelationId,
-			}
-			sendTasktoFunction(message)
-			d.Ack(false)
-		}
-	}()
-	log.Printf(" [*] %s ready to consume on %s", consumerName, qName)
 }
 
 func main() {
