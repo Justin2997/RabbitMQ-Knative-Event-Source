@@ -10,4 +10,4 @@ spec:
           container:
             image: docker.io/justin2997/knative-rabbitmq-producer
             args:
-              - '--routingKey=logger1.critical.function'
+              - '--routingKey=logger1.default.critical.function'
