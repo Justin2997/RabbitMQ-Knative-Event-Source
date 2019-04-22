@@ -7,7 +7,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/streadway/amqp"
@@ -70,7 +69,7 @@ func serving() {
 
 func main() {
 	done := make(chan bool)
-	go serving()
+	// go serving()
 
 	callbackPath := "/callback/"
 	callbackURL := "http://producer.default.svc.cluster.local" + callbackPath
@@ -93,7 +92,7 @@ func main() {
 	// Connect to the Exchange
 	err = ch.ExchangeDeclare(
 		exchangeName, // name
-		"topic",      // type
+		"fanout",     // type
 		true,         // durable
 		false,        // auto-deleted
 		false,        // internal
@@ -103,11 +102,11 @@ func main() {
 	failOnError(err, "Failed to declare an exchange")
 
 	for i := 0; i < 5; i++ {
-		body := strconv.Itoa(i)
+		body := "{'msg': 'This is a test!'}"
 		corrID := randomString(32)
 		err = ch.Publish(
 			exchangeName, // exchange
-			routingKey,   // routing key
+			"",           // routing key
 			false,        // mandatory
 			false,        // immediate
 			amqp.Publishing{
@@ -117,7 +116,7 @@ func main() {
 				CorrelationId: corrID,
 			})
 		failOnError(err, "Failed to publish a message")
-		go callback(corrID, callbackPath)
+		// go callback(corrID, callbackPath)
 
 		log.Printf(" [x] Sent %s", body)
 		time.Sleep(1 * time.Second)
